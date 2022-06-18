@@ -1,7 +1,7 @@
 #include "SearchDog.h"
 
-int main() {
-	SearchDog doggy("D:\\");
+int main(int args, char* argv[]) {
+	SearchDog doggy("C:\\");
 
-	doggy.Search("cube.obj");
+	doggy.Search("CV-Habzovskyi_compressed.pdf");
 }
