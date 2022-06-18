@@ -2,6 +2,7 @@
 #include <string>
 #include <experimental/filesystem>
 #include <future>
+#include <mutex>
 
 namespace fs = std::experimental::filesystem;
 
@@ -10,6 +11,8 @@ private:
 	std::string m_RootDir;
 	std::vector<std::string> m_SubDirs;
 	std::vector<std::future<void>> m_Futures;
+
+	std::mutex mtx;
 
 	const int m_ThreadLim = 8;
 
@@ -38,8 +41,16 @@ private:
 			else {
 				if (GetFileName(file.path().string()) == fileName) {
 					std::cout << file.path().string() << std::endl;
-					this->m_IsFound = true;
+					m_IsFound = true;
 				}
+			}
+		}
+	}
+
+	void ClearFutures() {
+		for (int j = 0; j < m_Futures.size(); j++) {
+			if (m_Futures[j].wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+				m_Futures.erase(m_Futures.begin() + j);
 			}
 		}
 	}
@@ -55,18 +66,28 @@ public:
 
 	void Search(const std::string& fileName) {
 		for (int i = 0; i < m_SubDirs.size() && !m_IsFound; i++) {
+			if (!fs::is_directory(m_SubDirs[i])) {
+				if (GetFileName(m_SubDirs[i]) == fileName) {
+					std::cout << m_SubDirs[i] << std::endl;
+					m_IsFound = true;
+					break;
+				}
+			}
 			while (true) {
 				if (m_Futures.size() < m_ThreadLim) {
 					m_Futures.push_back(std::async(std::launch::async, &SearchDog::SearchFile, this, m_SubDirs[i], fileName));
 					break;
 				}
 
-				for (int j = 0; j < m_Futures.size(); j++) {
-					if (m_Futures[j].wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
-						m_Futures.erase(m_Futures.begin() + j);
-					}
-				}
+				ClearFutures();
 			}
+		}
+
+		while (m_Futures.size() > 0)
+			ClearFutures();
+
+		if (!m_IsFound) {
+			std::cout << "File not found!" << std::endl;
 		}
 	}
 };
@@ -74,5 +95,5 @@ public:
 int main() {
 	SearchDog doggy("D:\\");
 
-	doggy.Search("Secret.txt");
+	doggy.Search("cube.obj");
 }
